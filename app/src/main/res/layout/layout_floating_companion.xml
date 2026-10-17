@@ -16,9 +16,10 @@
         android:padding="12dp">
 
         <TextView
+            android:id="@+id/tvCardHeader"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="✦ Vessel Suggestion"
+            android:text="✦ Vessel Whisper"
             android:textColor="#A5B4FC"
             android:textSize="11sp"
             android:textStyle="bold" />
@@ -63,8 +64,8 @@
 
     <ImageView
         android:id="@+id/ivKnight"
-        android:layout_width="64dp"
-        android:layout_height="72dp"
+        android:layout_width="68dp"
+        android:layout_height="76dp"
         android:src="@drawable/ic_hollow_knight"
         android:contentDescription="Companion" />
 </LinearLayout>

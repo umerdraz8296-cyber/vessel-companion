@@ -16,44 +16,48 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.math.abs
 
 class FloatingCompanionService : Service() {
+    companion object {
+        var activeInstance: FloatingCompanionService? = null
+        fun onTextReceived(text: String) {
+            activeInstance?.processText(text)
+        }
+    }
+
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
     private lateinit var ivKnight: ImageView
     private lateinit var cardCorrection: View
     private lateinit var tvCorrectedText: TextView
+    private lateinit var tvCardHeader: TextView
     private lateinit var btnCopy: View
     private lateinit var btnDismiss: View
     private val client = OkHttpClient()
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var lastAnalyzedText = ""
 
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val text = intent?.getStringExtra("typed_text") ?: return
-            if (text != lastAnalyzedText && text.trim().split(" ").size >= 2) {
-                lastAnalyzedText = text
-                requestGeminiCorrection(text)
-            }
-        }
-    }
-
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        activeInstance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val inflater = LayoutInflater.from(this)
-        floatingView = inflater.inflate(R.layout.layout_floating_companion, null)
+        floatingView = LayoutInflater.from(this).inflate(R.layout.layout_floating_companion, null)
 
         ivKnight = floatingView.findViewById(R.id.ivKnight)
         cardCorrection = floatingView.findViewById(R.id.cardCorrection)
         tvCorrectedText = floatingView.findViewById(R.id.tvCorrectedText)
+        tvCardHeader = floatingView.findViewById(R.id.tvCardHeader)
         btnCopy = floatingView.findViewById(R.id.btnCopy)
         btnDismiss = floatingView.findViewById(R.id.btnDismiss)
 
-        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
+        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -67,7 +71,7 @@ class FloatingCompanionService : Service() {
         }
 
         windowManager.addView(floatingView, params)
-        setupAnimations(params)
+        setupInteractiveKnight(params)
 
         btnDismiss.setOnClickListener { cardCorrection.visibility = View.GONE }
         btnCopy.setOnClickListener {
@@ -75,75 +79,123 @@ class FloatingCompanionService : Service() {
             clipboard.setPrimaryClip(ClipData.newPlainText("Corrected", tvCorrectedText.text))
             cardCorrection.visibility = View.GONE
         }
+    }
 
-        val filter = IntentFilter("ACTION_INPUT_TEXT_CHANGED")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(receiver, filter)
+    private fun setupInteractiveKnight(params: WindowManager.LayoutParams) {
+        val bobbing = ObjectAnimator.ofFloat(ivKnight, "translationY", 0f, -14f, 0f).apply {
+            duration = 2000
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+        }
+        bobbing.start()
+
+        var initialX = 0; var initialY = 0
+        var touchX = 0f; var touchY = 0f
+        var startTouchTime = 0L
+
+        ivKnight.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x; initialY = params.y
+                    touchX = event.rawX; touchY = event.rawY
+                    startTouchTime = System.currentTimeMillis()
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = initialX + (event.rawX - touchX).toInt()
+                    params.y = initialY + (event.rawY - touchY).toInt()
+                    windowManager.updateViewLayout(floatingView, params)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val duration = System.currentTimeMillis() - startTouchTime
+                    val diffX = abs(event.rawX - touchX)
+                    val diffY = abs(event.rawY - touchY)
+                    // If tap instead of drag
+                    if (duration < 250 && diffX < 15 && diffY < 15) {
+                        onKnightTapped()
+                    }
+                    true
+                }
+                else -> false
+            }
         }
     }
 
-    private fun setupAnimations(params: WindowManager.LayoutParams) {
-        ObjectAnimator.ofFloat(ivKnight, "translationY", 0f, -16f, 0f).apply {
-            duration = 2200
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.REVERSE
-        }.start()
-
-        ivKnight.setOnTouchListener(object : View.OnTouchListener {
-            private var initialX = 0; private var initialY = 0
-            private var touchX = 0f; private var touchY = 0f
-            override fun onTouch(v: View?, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        initialX = params.x; initialY = params.y
-                        touchX = event.rawX; touchY = event.rawY
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        params.x = initialX + (event.rawX - touchX).toInt()
-                        params.y = initialY + (event.rawY - touchY).toInt()
-                        windowManager.updateViewLayout(floatingView, params)
-                        return true
-                    }
-                }
-                return false
-            }
-        })
+    private fun onKnightTapped() {
+        if (cardCorrection.visibility == View.VISIBLE) {
+            cardCorrection.visibility = View.GONE
+        } else {
+            tvCardHeader.text = "✦ Hallownest Companion"
+            tvCorrectedText.text = "I am listening to your typing across all apps. Make a spelling or grammar mistake to summon a correction!"
+            cardCorrection.visibility = View.VISIBLE
+        }
     }
 
-    private fun requestGeminiCorrection(inputText: String) {
+    fun processText(inputText: String) {
+        if (inputText == lastAnalyzedText || inputText.split(" ").size < 2) return
+        lastAnalyzedText = inputText
+
         val prefs = getSharedPreferences("vessel_prefs", Context.MODE_PRIVATE)
         val apiKey = prefs.getString("gemini_key", "") ?: ""
-        if (apiKey.isBlank()) return
+
+        if (apiKey.isBlank()) {
+            tvCardHeader.text = "⚠ Vessel Needs Key"
+            tvCorrectedText.text = "Open the Vessel AI app and enter your Gemini API key."
+            cardCorrection.visibility = View.VISIBLE
+            return
+        }
 
         scope.launch(Dispatchers.IO) {
             try {
-                val prompt = "If this has grammatical or spelling mistakes, fix it and return ONLY the corrected sentence. If it is already correct, return EXACTLY 'CLEAN'. Text: \"$inputText\""
+                val prompt = "Fix spelling and grammar in this sentence. Output ONLY the corrected text. If the sentence has NO mistakes, reply ONLY with 'CLEAN'. Text: \"$inputText\""
                 val json = JSONObject().apply {
-                    put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
+                    put("contents", JSONArray().put(
+                        JSONObject().put("parts", JSONArray().put(
+                            JSONObject().put("text", prompt)
+                        ))
+                    ))
                 }
                 val body = json.toString().toRequestBody("application/json".toMediaType())
-                val request = Request.Builder().url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey").post(body).build()
+                val request = Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
+                    .post(body)
+                    .build()
+
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
+
                 if (response.isSuccessful && responseBody != null) {
-                    val reply = JSONObject(responseBody).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim()
+                    val reply = JSONObject(responseBody)
+                        .getJSONArray("candidates")
+                        .getJSONObject(0)
+                        .getJSONObject("content")
+                        .getJSONArray("parts")
+                        .getJSONObject(0)
+                        .getString("text")
+                        .trim()
+
                     withContext(Dispatchers.Main) {
                         if (!reply.equals("CLEAN", ignoreCase = true) && reply.isNotBlank()) {
+                            tvCardHeader.text = "✦ Correction Suggested"
                             tvCorrectedText.text = reply
                             cardCorrection.visibility = View.VISIBLE
                         }
                     }
                 }
-            } catch (e: Exception) { e.printStackTrace() }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    tvCardHeader.text = "✕ Gemini Error"
+                    tvCorrectedText.text = "Connection error: ${e.localizedMessage ?: "Check API Key"}"
+                    cardCorrection.visibility = View.VISIBLE
+                }
+            }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(receiver)
+        activeInstance = null
         if (::floatingView.isInitialized) windowManager.removeView(floatingView)
         scope.cancel()
     }

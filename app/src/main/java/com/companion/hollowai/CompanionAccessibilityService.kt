@@ -1,23 +1,31 @@
 package com.companion.hollowai
 import android.accessibilityservice.AccessibilityService
-import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 
 class CompanionAccessibilityService : AccessibilityService() {
+    companion object {
+        var isRunning = false
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        isRunning = true
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
-            val textList = event.text
-            if (textList.isNotEmpty()) {
-                val fullText = textList.joinToString(" ")
-                if (fullText.trim().length > 4) {
-                    val intent = Intent("ACTION_INPUT_TEXT_CHANGED").apply {
-                        putExtra("typed_text", fullText)
-                        setPackage(packageName)
-                    }
-                    sendBroadcast(intent)
-                }
+        if (event == null) return
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+            val text = event.text.joinToString(" ").trim()
+            if (text.length > 3) {
+                FloatingCompanionService.onTextReceived(text)
             }
         }
     }
+
     override fun onInterrupt() {}
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isRunning = false
+    }
 }
