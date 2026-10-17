@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal">
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardCorrection" android:layout_width="260dp" android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp" android:visibility="gone" app:cardBackgroundColor="#1A1C24" app:cardCornerRadius="14dp" app:strokeColor="#2F3346" app:strokeWidth="1dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✦ Vessel Suggestion" android:textColor="#A5B4FC" android:textSize="11sp" android:textStyle="bold" />
+            <TextView android:id="@+id/tvCorrectedText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textColor="#FFFFFF" android:textSize="13sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="end">
+                <Button android:id="@+id/btnDismiss" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="36dp" android:text="Dismiss" android:textColor="#9CA3AF" android:textSize="12sp" />
+                <Button android:id="@+id/btnCopy" android:layout_width="wrap_content" android:layout_height="36dp" android:backgroundTint="#6366F1" android:text="Copy" android:textColor="#FFFFFF" android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <ImageView android:id="@+id/ivKnight" android:layout_width="64dp" android:layout_height="72dp" android:src="@drawable/ic_hollow_knight" android:contentDescription="Companion" />
+</LinearLayout>
