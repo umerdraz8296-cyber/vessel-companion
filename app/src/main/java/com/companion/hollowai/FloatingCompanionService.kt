@@ -10,8 +10,6 @@ import android.view.*
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -110,8 +108,7 @@ class FloatingCompanionService : Service() {
     }
 
     private fun requestGeminiCorrection(inputText: String) {
-        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-        val prefs = EncryptedSharedPreferences.create("secret_shared_prefs", masterKeyAlias, this, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+        val prefs = getSharedPreferences("vessel_prefs", Context.MODE_PRIVATE)
         val apiKey = prefs.getString("gemini_key", "") ?: ""
         if (apiKey.isBlank()) return
 
