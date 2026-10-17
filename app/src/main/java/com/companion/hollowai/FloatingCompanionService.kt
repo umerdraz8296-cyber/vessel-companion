@@ -7,7 +7,6 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.view.*
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import kotlinx.coroutines.*
@@ -24,8 +23,8 @@ class FloatingCompanionService : Service() {
     private lateinit var ivKnight: ImageView
     private lateinit var cardCorrection: View
     private lateinit var tvCorrectedText: TextView
-    private lateinit var btnCopy: Button
-    private lateinit var btnDismiss: Button
+    private lateinit var btnCopy: View
+    private lateinit var btnDismiss: View
     private val client = OkHttpClient()
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var lastAnalyzedText = ""
@@ -45,7 +44,9 @@ class FloatingCompanionService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        floatingView = LayoutInflater.from(this).inflate(R.layout.layout_floating_companion, null)
+        val inflater = LayoutInflater.from(this)
+        floatingView = inflater.inflate(R.layout.layout_floating_companion, null)
+
         ivKnight = floatingView.findViewById(R.id.ivKnight)
         cardCorrection = floatingView.findViewById(R.id.cardCorrection)
         tvCorrectedText = floatingView.findViewById(R.id.tvCorrectedText)
@@ -53,11 +54,18 @@ class FloatingCompanionService : Service() {
         btnDismiss = floatingView.findViewById(R.id.btnDismiss)
 
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
-        val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, layoutType, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply {
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            layoutType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = 100
             y = 350
         }
+
         windowManager.addView(floatingView, params)
         setupAnimations(params)
 
@@ -84,10 +92,8 @@ class FloatingCompanionService : Service() {
         }.start()
 
         ivKnight.setOnTouchListener(object : View.OnTouchListener {
-            private var initialX = 0
-            private var initialY = 0
-            private var touchX = 0f
-            private var touchY = 0f
+            private var initialX = 0; private var initialY = 0
+            private var touchX = 0f; private var touchY = 0f
             override fun onTouch(v: View?, event: MotionEvent): Boolean {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
